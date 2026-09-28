@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bitcoin Trading Terminal - Predictive VSA Engine</title>
+    <title>Bitcoin Trading Terminal - Predictive VSA Engine & Trade Setup</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -189,6 +189,27 @@
         .predict-tf { font-size: 10px; color: #787b86; margin-bottom: 2px; }
         .predict-val { font-size: 12px; font-weight: bold; }
 
+        /* NUEVO: ESTILOS TRADE SETUP PANEL */
+        .setup-card {
+            background: rgba(19, 23, 34, 0.95);
+            border: 1px solid #ffd700;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 11px;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
+        }
+
+        .setup-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            border-bottom: 1px dashed rgba(255,255,255,0.05);
+        }
+
+        .setup-label { color: #787b86; font-size: 10px; }
+        .setup-value { font-weight: bold; font-size: 11px; }
+
         .config-box {
             background-color: rgba(19, 23, 34, 0.9);
             border: 1px solid #2a2e39;
@@ -257,6 +278,34 @@
                         <div id="p-4h" class="predict-val txt-yellow">CALCULANDO</div>
                         <div id="prob-4h" style="font-size: 9px; color: #787b86;">--% Confianza</div>
                     </div>
+                </div>
+            </div>
+
+            <!-- NUEVO: CAJA DE TRADE SETUP AUTOMÁTICO -->
+            <div id="setup-panel" class="setup-card">
+                <div class="predict-title" style="color: #ffd700; border-bottom-color: rgba(255, 215, 0, 0.2);">
+                    <span>Trade Setup Óptimo</span>
+                    <span id="setup-type" class="txt-yellow">BUSCANDO...</span>
+                </div>
+                <div class="setup-row">
+                    <span class="setup-label">Precio Entrada:</span>
+                    <span id="setup-entry" class="setup-value">--</span>
+                </div>
+                <div class="setup-row">
+                    <span class="setup-label">Stop Loss (VSA Inval.):</span>
+                    <span id="setup-sl" class="setup-value txt-red">--</span>
+                </div>
+                <div class="setup-row">
+                    <span class="setup-label">Take Profit 1:</span>
+                    <span id="setup-tp1" class="setup-value txt-green">--</span>
+                </div>
+                <div class="setup-row">
+                    <span class="setup-label">Take Profit 2 (S/R MTF):</span>
+                    <span id="setup-tp2" class="setup-value txt-green">--</span>
+                </div>
+                <div class="setup-row" style="border-bottom: none; padding-top: 5px;">
+                    <span class="setup-label">Ratio Riesgo/Beneficio:</span>
+                    <span id="setup-rr" class="setup-value txt-yellow">1 : --</span>
                 </div>
             </div>
 
@@ -410,7 +459,7 @@
             return { events, lastSupport, lastResistance, lastState };
         }
 
-        /* --- MOTOR DE PREDICCIÓN Y PROBABILIDADES CUANTITATIVAS --- */
+        /* --- MOTOR PREDICTIVO Y CÁLCULO DE TRADE SETUP --- */
         function runPredictionEngine() {
             if (currentCandleData.length === 0) return;
 
@@ -418,40 +467,52 @@
             const tfs = ['15m', '1h', '4h'];
             let predictions = {};
 
-            let totalBias = 0; // Bias acumulado de presión (+ para BULLISH, - para BEARISH)
+            let totalBias = 0;
             let nearestZoneDist = Infinity;
             let nearestZoneType = null;
+            let nearestZonePrice = null;
+
+            // Recopilar todos los niveles S/R activos de todos los timeframes
+            let activeSupports = [];
+            let activeResistances = [];
 
             tfs.forEach(tf => {
                 const cache = mtfVsaCache[tf];
                 if (!cache) return;
 
+                if (cache.lastSupport) activeSupports.push(cache.lastSupport.price);
+                if (cache.lastResistance) activeResistances.push(cache.lastResistance.price);
+
                 let tfBias = 0;
                 let supDist = cache.lastSupport ? Math.abs((currentPrice - cache.lastSupport.price) / currentPrice) * 100 : 999;
                 let resDist = cache.lastResistance ? Math.abs((currentPrice - cache.lastResistance.price) / currentPrice) * 100 : 999;
 
-                // Evaluación del último estado VSA
                 if (cache.lastState) {
                     if (cache.lastState.isBuy) tfBias += 15;
                     if (cache.lastState.isSell) tfBias -= 15;
                     tfBias += (parseFloat(cache.lastState.pctBuy) - parseFloat(cache.lastState.pctSell)) * 0.3;
                 }
 
-                // Proximidad a Soporte (Rebote Alcista)
                 if (supDist < 0.6) {
-                    tfBias += 35 * (1 - supDist / 0.6); // Entre más cerca del soporte, más impulso comprador
-                    if (supDist < nearestZoneDist) { nearestZoneDist = supDist; nearestZoneType = 'SOPORTE'; }
+                    tfBias += 35 * (1 - supDist / 0.6);
+                    if (supDist < nearestZoneDist) { 
+                        nearestZoneDist = supDist; 
+                        nearestZoneType = 'SOPORTE'; 
+                        nearestZonePrice = cache.lastSupport.price;
+                    }
                 }
 
-                // Proximidad a Resistencia (Rechazo Bajista)
                 if (resDist < 0.6) {
-                    tfBias -= 35 * (1 - resDist / 0.6); // Entre más cerca de la resistencia, más presión vendedora
-                    if (resDist < nearestZoneDist) { nearestZoneDist = resDist; nearestZoneType = 'RESISTENCIA'; }
+                    tfBias -= 35 * (1 - resDist / 0.6);
+                    if (resDist < nearestZoneDist) { 
+                        nearestZoneDist = resDist; 
+                        nearestZoneType = 'RESISTENCIA'; 
+                        nearestZonePrice = cache.lastResistance.price;
+                    }
                 }
 
                 totalBias += tfBias;
 
-                // Definición de Probabilidad y Dirección por TF
                 let direction = "RANGO";
                 let confidence = Math.min(Math.max(50 + Math.abs(tfBias), 52), 91);
 
@@ -461,7 +522,6 @@
                 predictions[tf] = { direction, confidence: confidence.toFixed(0) };
             });
 
-            // Actualizar interfaz con predicciones
             const updatePredictUI = (idPrefix, data) => {
                 if (!data) return;
                 const elDir = document.getElementById(`p-${idPrefix}`);
@@ -482,7 +542,6 @@
             updatePredictUI('1h', predictions['1h']);
             updatePredictUI('4h', predictions['4h']);
 
-            // Resumen de diagnóstico
             const summaryEl = document.getElementById("ai-summary");
             if (nearestZoneType && nearestZoneDist < 0.6) {
                 summaryEl.innerText = `Cerca de ${nearestZoneType} MTF (${nearestZoneDist.toFixed(2)}% dist). Reacción inminente.`;
@@ -492,6 +551,75 @@
                 summaryEl.innerText = `Presión de venta masiva detectada. Ajustando proyección a la baja.`;
             } else {
                 summaryEl.innerText = `Mercado consolidando entre zonas clave de soporte y resistencia.`;
+            }
+
+            // CÁLCULO DE TRADE SETUP EN TIEMPO REAL
+            generateTradeSetup(currentPrice, totalBias, activeSupports, activeResistances, nearestZoneType, nearestZonePrice);
+        }
+
+        function generateTradeSetup(price, totalBias, supports, resistances, zoneType, zonePrice) {
+            const elType = document.getElementById("setup-type");
+            const elEntry = document.getElementById("setup-entry");
+            const elSL = document.getElementById("setup-sl");
+            const elTP1 = document.getElementById("setup-tp1");
+            const elTP2 = document.getElementById("setup-tp2");
+            const elRR = document.getElementById("setup-rr");
+
+            // Filtrar y ordenar niveles por encima y por debajo del precio actual
+            let validResistances = resistances.filter(r => r > price).sort((a, b) => a - b);
+            let validSupports = supports.filter(s => s < price).sort((a, b) => b - a);
+
+            if (totalBias > 10 || (zoneType === 'SOPORTE' && zonePrice)) {
+                // SETUP LONG (COMPRA)
+                const entry = price;
+                const baseSup = zonePrice || (validSupports.length > 0 ? validSupports[0] : entry * 0.995);
+                const sl = baseSup * 0.997; // Stop Loss 0.3% por debajo de la invalidez VSA
+
+                const risk = entry - sl;
+                const tp1 = entry + (risk * 1.5);
+                const tp2 = validResistances.length > 0 ? validResistances[0] : entry + (risk * 3.0);
+
+                const reward = tp1 - entry;
+                const rr = (reward / risk).toFixed(2);
+
+                elType.innerText = "LONG (COMPRA)";
+                elType.className = "txt-green";
+                elEntry.innerText = entry.toFixed(2);
+                elSL.innerText = sl.toFixed(2);
+                elTP1.innerText = tp1.toFixed(2);
+                elTP2.innerText = tp2.toFixed(2);
+                elRR.innerText = `1 : ${rr}`;
+
+            } else if (totalBias < -10 || (zoneType === 'RESISTENCIA' && zonePrice)) {
+                // SETUP SHORT (VENTA)
+                const entry = price;
+                const baseRes = zonePrice || (validResistances.length > 0 ? validResistances[0] : entry * 1.005);
+                const sl = baseRes * 1.003; // Stop Loss 0.3% por encima de la invalidez VSA
+
+                const risk = sl - entry;
+                const tp1 = entry - (risk * 1.5);
+                const tp2 = validSupports.length > 0 ? validSupports[0] : entry - (risk * 3.0);
+
+                const reward = entry - tp1;
+                const rr = (reward / risk).toFixed(2);
+
+                elType.innerText = "SHORT (VENTA)";
+                elType.className = "txt-red";
+                elEntry.innerText = entry.toFixed(2);
+                elSL.innerText = sl.toFixed(2);
+                elTP1.innerText = tp1.toFixed(2);
+                elTP2.innerText = tp2.toFixed(2);
+                elRR.innerText = `1 : ${rr}`;
+
+            } else {
+                // RANGO / ESPERAR
+                elType.innerText = "ESPERAR ZONA";
+                elType.className = "txt-yellow";
+                elEntry.innerText = price.toFixed(2);
+                elSL.innerText = "--";
+                elTP1.innerText = "--";
+                elTP2.innerText = "--";
+                elRR.innerText = "1 : --";
             }
         }
 
@@ -775,9 +903,11 @@
         btnPanel.addEventListener("click", () => {
             const panel1 = document.getElementById("panel-vsa-mtf");
             const panel2 = document.getElementById("predict-panel");
+            const panel3 = document.getElementById("setup-panel");
             const isHidden = panel1.style.display === "none";
             panel1.style.display = isHidden ? "block" : "none";
             panel2.style.display = isHidden ? "block" : "none";
+            panel3.style.display = isHidden ? "block" : "none";
             btnPanel.className = isHidden ? "btn-toggle" : "btn-toggle inactive";
         });
 
