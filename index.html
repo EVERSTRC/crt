@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bitcoin Trading Terminal - Predictive VSA Engine & Trade Setup</title>
+    <title>Bitcoin Trading Terminal - Fixed Entry Visualizer</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -189,7 +189,6 @@
         .predict-tf { font-size: 10px; color: #787b86; margin-bottom: 2px; }
         .predict-val { font-size: 12px; font-weight: bold; }
 
-        /* NUEVO: ESTILOS TRADE SETUP PANEL */
         .setup-card {
             background: rgba(19, 23, 34, 0.95);
             border: 1px solid #ffd700;
@@ -253,7 +252,6 @@
         </div>
 
         <div id="dashboard">
-            <!-- MÓDULO PREDICTIVO CUANTITATIVO -->
             <div id="predict-panel" class="predict-card">
                 <div class="predict-title">
                     <span>Proyección Algorítmica AI</span>
@@ -281,15 +279,14 @@
                 </div>
             </div>
 
-            <!-- NUEVO: CAJA DE TRADE SETUP AUTOMÁTICO -->
             <div id="setup-panel" class="setup-card">
                 <div class="predict-title" style="color: #ffd700; border-bottom-color: rgba(255, 215, 0, 0.2);">
                     <span>Trade Setup Óptimo</span>
                     <span id="setup-type" class="txt-yellow">BUSCANDO...</span>
                 </div>
                 <div class="setup-row">
-                    <span class="setup-label">Precio Entrada:</span>
-                    <span id="setup-entry" class="setup-value">--</span>
+                    <span class="setup-label">Precio Entrada (LIMIT):</span>
+                    <span id="setup-entry" class="setup-value txt-yellow">--</span>
                 </div>
                 <div class="setup-row">
                     <span class="setup-label">Stop Loss (VSA Inval.):</span>
@@ -309,7 +306,6 @@
                 </div>
             </div>
 
-            <!-- TABLA MULTI-TIMEFRAME -->
             <div id="panel-vsa-mtf" class="vsa-table-container">
                 <table class="vsa-table">
                     <thead>
@@ -358,6 +354,7 @@
         let currentCandleData = [];
         let mtfVsaCache = {};
         let vsaLinesToDraw = [];
+        let calculatedEntryPrice = null; // Guardar el precio certero de entrada
         let ws = null;
 
         const statusEl = document.getElementById("status");
@@ -459,7 +456,6 @@
             return { events, lastSupport, lastResistance, lastState };
         }
 
-        /* --- MOTOR PREDICTIVO Y CÁLCULO DE TRADE SETUP --- */
         function runPredictionEngine() {
             if (currentCandleData.length === 0) return;
 
@@ -472,7 +468,6 @@
             let nearestZoneType = null;
             let nearestZonePrice = null;
 
-            // Recopilar todos los niveles S/R activos de todos los timeframes
             let activeSupports = [];
             let activeResistances = [];
 
@@ -553,7 +548,6 @@
                 summaryEl.innerText = `Mercado consolidando entre zonas clave de soporte y resistencia.`;
             }
 
-            // CÁLCULO DE TRADE SETUP EN TIEMPO REAL
             generateTradeSetup(currentPrice, totalBias, activeSupports, activeResistances, nearestZoneType, nearestZonePrice);
         }
 
@@ -565,16 +559,15 @@
             const elTP2 = document.getElementById("setup-tp2");
             const elRR = document.getElementById("setup-rr");
 
-            // Filtrar y ordenar niveles por encima y por debajo del precio actual
             let validResistances = resistances.filter(r => r > price).sort((a, b) => a - b);
             let validSupports = supports.filter(s => s < price).sort((a, b) => b - a);
 
             if (totalBias > 10 || (zoneType === 'SOPORTE' && zonePrice)) {
-                // SETUP LONG (COMPRA)
-                const entry = price;
-                const baseSup = zonePrice || (validSupports.length > 0 ? validSupports[0] : entry * 0.995);
-                const sl = baseSup * 0.997; // Stop Loss 0.3% por debajo de la invalidez VSA
+                // Fija la entrada exactamente en la zona de soporte clave
+                const entry = zonePrice || (validSupports.length > 0 ? validSupports[0] : price * 0.998);
+                calculatedEntryPrice = entry; // Guardar para dibujar en el gráfico
 
+                const sl = entry * 0.997; 
                 const risk = entry - sl;
                 const tp1 = entry + (risk * 1.5);
                 const tp2 = validResistances.length > 0 ? validResistances[0] : entry + (risk * 3.0);
@@ -591,11 +584,11 @@
                 elRR.innerText = `1 : ${rr}`;
 
             } else if (totalBias < -10 || (zoneType === 'RESISTENCIA' && zonePrice)) {
-                // SETUP SHORT (VENTA)
-                const entry = price;
-                const baseRes = zonePrice || (validResistances.length > 0 ? validResistances[0] : entry * 1.005);
-                const sl = baseRes * 1.003; // Stop Loss 0.3% por encima de la invalidez VSA
+                // Fija la entrada exactamente en la zona de resistencia clave
+                const entry = zonePrice || (validResistances.length > 0 ? validResistances[0] : price * 1.002);
+                calculatedEntryPrice = entry; // Guardar para dibujar en el gráfico
 
+                const sl = entry * 1.003; 
                 const risk = sl - entry;
                 const tp1 = entry - (risk * 1.5);
                 const tp2 = validSupports.length > 0 ? validSupports[0] : entry - (risk * 3.0);
@@ -612,10 +605,10 @@
                 elRR.innerText = `1 : ${rr}`;
 
             } else {
-                // RANGO / ESPERAR
+                calculatedEntryPrice = null;
                 elType.innerText = "ESPERAR ZONA";
                 elType.className = "txt-yellow";
-                elEntry.innerText = price.toFixed(2);
+                elEntry.innerText = "--";
                 elSL.innerText = "--";
                 elTP1.innerText = "--";
                 elTP2.innerText = "--";
@@ -671,7 +664,7 @@
 
         function drawOverlay() {
             ctx.clearRect(0, 0, overlay.width, overlay.height);
-            if (!showVsaLines || vsaLinesToDraw.length === 0 || currentCandleData.length === 0) return;
+            if (currentCandleData.length === 0) return;
 
             const timeScale = chart.timeScale();
             const lastCandle = currentCandleData[currentCandleData.length - 1];
@@ -683,23 +676,44 @@
 
             let drawableItems = [];
 
-            vsaLinesToDraw.forEach(item => {
-                const y = candlestickSeries.priceToCoordinate(item.price);
-                if (y !== null && y >= 0 && y <= overlay.height) {
-                    let startX = 0;
-                    if (item.startTime) {
-                        const coordX = timeScale.timeToCoordinate(item.startTime);
-                        if (coordX !== null) startX = Math.max(0, coordX);
+            if (showVsaLines && vsaLinesToDraw.length > 0) {
+                vsaLinesToDraw.forEach(item => {
+                    const y = candlestickSeries.priceToCoordinate(item.price);
+                    if (y !== null && y >= 0 && y <= overlay.height) {
+                        let startX = 0;
+                        if (item.startTime) {
+                            const coordX = timeScale.timeToCoordinate(item.startTime);
+                            if (coordX !== null) startX = Math.max(0, coordX);
+                        }
+                        drawableItems.push({
+                            ...item,
+                            y: y,
+                            labelY: y,
+                            startX: startX,
+                            endX: lastCandleX
+                        });
                     }
+                });
+            }
+
+            // DIBUJAR LÍNEA DE PRECIO DE ENTRADA CERTERO (DORADA)
+            if (calculatedEntryPrice) {
+                const entryY = candlestickSeries.priceToCoordinate(calculatedEntryPrice);
+                if (entryY !== null && entryY >= 0 && entryY <= overlay.height) {
                     drawableItems.push({
-                        ...item,
-                        y: y,
-                        labelY: y,
-                        startX: startX,
+                        price: calculatedEntryPrice,
+                        title: 'ENTRY LIMIT',
+                        color: '#ffd700',
+                        style: 'dashed',
+                        lineWidth: 2.0,
+                        isEntry: true,
+                        y: entryY,
+                        labelY: entryY,
+                        startX: 0,
                         endX: lastCandleX
                     });
                 }
-            });
+            }
 
             drawableItems.sort((a, b) => a.y - b.y);
 
@@ -718,7 +732,7 @@
                 ctx.beginPath();
 
                 if (item.style === 'dashed') {
-                    ctx.setLineDash([6, 4]);
+                    ctx.setLineDash([4, 4]);
                 } else {
                     ctx.setLineDash([]);
                 }
