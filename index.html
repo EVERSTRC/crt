@@ -2,45 +2,48 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Bitcoin Trading Terminal - VPVR & Decision Engine</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         
         html, body { 
-            width: 100vw; 
-            height: 100vh; 
+            width: 100%; 
+            height: 100%; 
             overflow: hidden; 
-            font-family: -apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, sans-serif; 
             background-color: #000000; 
             color: #d1d4dc; 
             display: flex; 
             flex-direction: column; 
         }
 
+        /* BARRA SUPERIOR RESPONSIVA */
         #top-bar { 
             display: flex; 
             align-items: center; 
             justify-content: space-between; 
-            padding: 0 16px; 
+            padding: 4px 12px; 
             background-color: #131722; 
             border-bottom: 1px solid #2a2e39; 
             flex-shrink: 0; 
-            height: 44px;
-            font-size: 13px;
+            min-height: 44px;
+            font-size: 12px;
+            flex-wrap: wrap;
+            gap: 6px;
         }
 
-        .controls-left { display: flex; align-items: center; gap: 12px; }
-        .controls-right { display: flex; align-items: center; gap: 6px; }
+        .controls-left { display: flex; align-items: center; gap: 8px; }
+        .controls-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
         .select-tf { 
             background-color: #1e222d; 
             color: #d1d4dc; 
             border: 1px solid #363c4e; 
-            padding: 4px 8px; 
+            padding: 4px 6px; 
             border-radius: 4px; 
-            font-size: 12px; 
+            font-size: 11px; 
             cursor: pointer; 
             outline: none;
         }
@@ -49,36 +52,41 @@
             background-color: rgba(0, 230, 118, 0.15);
             color: #00e676;
             border: 1px solid #00e676;
-            padding: 2px 8px;
+            padding: 2px 6px;
             border-radius: 4px;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: bold;
             transition: all 0.3s ease;
+            white-space: nowrap;
         }
 
         .btn-toggle {
             background-color: #2962ff;
             color: #ffffff;
             border: none;
-            padding: 5px 10px;
+            padding: 4px 8px;
             border-radius: 4px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 500;
             cursor: pointer;
+            white-space: nowrap;
         }
         .btn-toggle.inactive { background-color: #2a2e39; color: #787b86; }
 
+        /* CONTENEDOR PRINCIPAL */
         #main-container { 
             display: flex; 
             flex: 1; 
             position: relative; 
             overflow: hidden; 
             width: 100%; 
+            height: 100%;
         }
 
         #chart-wrapper {
             flex: 1;
             height: 100%;
+            width: 100%;
             position: relative;
         }
 
@@ -97,21 +105,27 @@
             z-index: 5;
         }
 
+        /* DASHBOARD FLOTANTE / RESPONSIVO */
         #dashboard { 
             position: absolute;
-            top: 12px;
-            right: 80px;
+            top: 10px;
+            right: 10px;
             z-index: 10;
             display: flex; 
             flex-direction: column; 
             gap: 8px; 
-            max-height: calc(100% - 24px);
+            max-height: calc(100% - 20px);
             overflow-y: auto;
-            width: 320px;
+            width: 310px;
+            padding-right: 2px;
         }
 
+        /* Scrollbar del Dashboard */
+        #dashboard::-webkit-scrollbar { width: 4px; }
+        #dashboard::-webkit-scrollbar-thumb { background: #2a2e39; border-radius: 2px; }
+
         .vsa-table-container {
-            background-color: rgba(19, 23, 34, 0.92);
+            background-color: rgba(19, 23, 34, 0.95);
             border: 1px solid #2962ff;
             border-radius: 4px;
             padding: 6px;
@@ -120,7 +134,7 @@
 
         .vsa-table { 
             border-collapse: collapse; 
-            font-size: 11px; 
+            font-size: 10px; 
             color: #d1d4dc;
             width: 100%;
         }
@@ -129,23 +143,23 @@
             background-color: #2962ff; 
             color: #ffffff; 
             text-align: center; 
-            padding: 4px 6px; 
+            padding: 3px 4px; 
             font-weight: 600; 
-            font-size: 10px;
+            font-size: 9px;
         }
 
         .vsa-table td { 
-            padding: 4px 6px; 
+            padding: 3px 4px; 
             text-align: right; 
-            font-size: 11px; 
+            font-size: 10px; 
             border-bottom: 1px solid #1e222d;
         }
 
         .vsa-table td:first-child { text-align: left; font-weight: bold; color: #ffffff; }
 
-        .badge-buy { background-color: #00e676; color: #000; font-weight: bold; padding: 1px 4px; border-radius: 2px; }
-        .badge-sell { background-color: #ff1744; color: #fff; font-weight: bold; padding: 1px 4px; border-radius: 2px; }
-        .badge-neu { background-color: #434651; color: #d1d4dc; font-weight: bold; padding: 1px 4px; border-radius: 2px; }
+        .badge-buy { background-color: #00e676; color: #000; font-weight: bold; padding: 1px 3px; border-radius: 2px; font-size: 9px; }
+        .badge-sell { background-color: #ff1744; color: #fff; font-weight: bold; padding: 1px 3px; border-radius: 2px; font-size: 9px; }
+        .badge-neu { background-color: #434651; color: #d1d4dc; font-weight: bold; padding: 1px 3px; border-radius: 2px; font-size: 9px; }
 
         .txt-green { color: #00e676; font-weight: bold; }
         .txt-red { color: #ff1744; font-weight: bold; }
@@ -156,7 +170,7 @@
             background: linear-gradient(135deg, rgba(20,26,40,0.95), rgba(10,13,20,0.95));
             border: 1px solid #00e5ff;
             border-radius: 6px;
-            padding: 10px;
+            padding: 8px;
             font-size: 11px;
             box-shadow: 0 4px 15px rgba(0, 229, 255, 0.15);
         }
@@ -164,12 +178,12 @@
         .predict-title {
             color: #00e5ff;
             font-weight: bold;
-            font-size: 11px;
+            font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
             border-bottom: 1px solid rgba(0, 229, 255, 0.2);
-            padding-bottom: 4px;
+            padding-bottom: 3px;
             display: flex;
             justify-content: space-between;
         }
@@ -177,26 +191,26 @@
         .predict-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 6px;
-            margin-top: 6px;
+            gap: 4px;
+            margin-top: 4px;
             text-align: center;
         }
 
         .predict-box {
             background: rgba(255,255,255,0.03);
             border: 1px solid #2a2e39;
-            padding: 6px 4px;
+            padding: 4px 2px;
             border-radius: 4px;
         }
 
-        .predict-tf { font-size: 10px; color: #787b86; margin-bottom: 2px; }
-        .predict-val { font-size: 11px; font-weight: bold; }
+        .predict-tf { font-size: 9px; color: #787b86; margin-bottom: 2px; }
+        .predict-val { font-size: 10px; font-weight: bold; }
 
         .decision-card {
             background: rgba(19, 23, 34, 0.95);
             border: 1px solid #2962ff;
             border-radius: 6px;
-            padding: 10px;
+            padding: 8px;
             font-size: 10px;
         }
 
@@ -204,7 +218,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 4px 6px;
+            padding: 3px 5px;
             margin-top: 4px;
             border-radius: 4px;
             background: rgba(255, 255, 255, 0.02);
@@ -215,15 +229,15 @@
         .range-item.medium { border-left-color: #ffd700; }
         .range-item.low { border-left-color: #ff1744; }
 
-        .range-pct { font-weight: bold; font-size: 11px; }
-        .range-desc { color: #b2b5be; font-size: 10px; text-align: right; }
+        .range-pct { font-weight: bold; font-size: 10px; }
+        .range-desc { color: #b2b5be; font-size: 9px; text-align: right; }
 
         .setup-card {
             background: rgba(19, 23, 34, 0.95);
             border: 1px solid #ffd700;
             border-radius: 6px;
-            padding: 10px;
-            font-size: 11px;
+            padding: 8px;
+            font-size: 10px;
             box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
         }
 
@@ -231,25 +245,56 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 3px 0;
+            padding: 2px 0;
             border-bottom: 1px dashed rgba(255,255,255,0.05);
         }
 
         .setup-label { color: #787b86; font-size: 10px; }
-        .setup-value { font-weight: bold; font-size: 11px; }
+        .setup-value { font-weight: bold; font-size: 10px; }
 
         .config-box {
-            background-color: rgba(19, 23, 34, 0.9);
+            background-color: rgba(19, 23, 34, 0.95);
             border: 1px solid #2a2e39;
-            padding: 6px 10px;
+            padding: 6px 8px;
             border-radius: 4px;
-            font-size: 11px;
+            font-size: 10px;
             display: flex;
             flex-direction: column;
             gap: 4px;
         }
         .config-row { display: flex; justify-content: space-between; align-items: center; }
-        .config-input { width: 45px; background: #2a2e39; border: 1px solid #363c4e; color: #fff; text-align: right; font-size: 11px; border-radius: 2px; }
+        .config-input { width: 45px; background: #2a2e39; border: 1px solid #363c4e; color: #fff; text-align: right; font-size: 10px; border-radius: 2px; }
+
+        /* MEDIA QUERIES PARA ADAPTACIÓN MÓVIL */
+        @media (max-width: 768px) {
+            #top-bar {
+                padding: 6px;
+                height: auto;
+            }
+            .controls-left, .controls-right {
+                width: 100%;
+                justify-content: space-between;
+            }
+            .btn-toggle {
+                font-size: 10px;
+                padding: 4px 6px;
+                flex: 1;
+                text-align: center;
+            }
+            #dashboard {
+                position: absolute;
+                top: 0;
+                right: 0;
+                left: 0;
+                bottom: 0;
+                width: 100%;
+                max-height: 100%;
+                background: rgba(0, 0, 0, 0.85);
+                backdrop-filter: blur(4px);
+                padding: 12px;
+                display: none; /* Se oculta/muestra dinámicamente */
+            }
+        }
     </style>
 </head>
 <body>
@@ -258,20 +303,20 @@
         <div class="controls-left">
             <span>TF:</span>
             <select id="timeframe" class="select-tf">
-                <option value="5m">5 Minutos</option>
-                <option value="15m" selected>15 Minutos</option>
-                <option value="1h">1 Hora</option>
-                <option value="4h">4 Horas</option>
-                <option value="1d">1 Diario</option>
+                <option value="5m">5M</option>
+                <option value="15m" selected>15M</option>
+                <option value="1h">1H</option>
+                <option value="4h">4H</option>
+                <option value="1d">1D</option>
             </select>
             <div id="status" class="status-badge">Conectando...</div>
         </div>
 
         <div class="controls-right">
-            <button id="btn-vpvr" class="btn-toggle">Perfil VPVR</button>
-            <button id="btn-vsa" class="btn-toggle">S/R Ballenas VSA</button>
-            <button id="btn-signals" class="btn-toggle">Señales BUY/SELL</button>
-            <button id="btn-panel" class="btn-toggle">Dashboard AI</button>
+            <button id="btn-vpvr" class="btn-toggle">VPVR</button>
+            <button id="btn-vsa" class="btn-toggle">S/R VSA</button>
+            <button id="btn-signals" class="btn-toggle">Señales</button>
+            <button id="btn-panel" class="btn-toggle">AI Panel</button>
         </div>
     </div>
 
@@ -287,75 +332,60 @@
                     <span>Proyección Algorítmica AI</span>
                     <span id="ai-status" style="color: #00e676;">LIVE</span>
                 </div>
-                <div style="font-size: 10px; color: #b2b5be; margin-bottom: 6px;" id="ai-summary">
-                    Analizando interacciones con niveles de liquidez...
+                <div style="font-size: 9px; color: #b2b5be; margin-bottom: 4px;" id="ai-summary">
+                    Analizando interacciones con liquidez...
                 </div>
                 <div class="predict-grid">
                     <div class="predict-box">
-                        <div class="predict-tf">Horizonte 15M</div>
-                        <div id="p-15m" class="predict-val txt-yellow">CALCULANDO</div>
-                        <div id="prob-15m" style="font-size: 9px; color: #787b86;">--% Confianza</div>
+                        <div class="predict-tf">15M</div>
+                        <div id="p-15m" class="predict-val txt-yellow">CALC</div>
+                        <div id="prob-15m" style="font-size: 8px; color: #787b86;">--%</div>
                     </div>
                     <div class="predict-box">
-                        <div class="predict-tf">Horizonte 1H</div>
-                        <div id="p-1h" class="predict-val txt-yellow">CALCULANDO</div>
-                        <div id="prob-1h" style="font-size: 9px; color: #787b86;">--% Confianza</div>
+                        <div class="predict-tf">1H</div>
+                        <div id="p-1h" class="predict-val txt-yellow">CALC</div>
+                        <div id="prob-1h" style="font-size: 8px; color: #787b86;">--%</div>
                     </div>
                     <div class="predict-box">
-                        <div class="predict-tf">Horizonte 4H</div>
-                        <div id="p-4h" class="predict-val txt-yellow">CALCULANDO</div>
-                        <div id="prob-4h" style="font-size: 9px; color: #787b86;">--% Confianza</div>
+                        <div class="predict-tf">4H</div>
+                        <div id="p-4h" class="predict-val txt-yellow">CALC</div>
+                        <div id="prob-4h" style="font-size: 8px; color: #787b86;">--%</div>
                     </div>
                 </div>
             </div>
 
             <div class="decision-card">
                 <div class="predict-title" style="color: #2962ff; border-bottom-color: rgba(41, 98, 255, 0.2);">
-                    <span>Guía de Decisiones (Confianza)</span>
+                    <span>Guía de Decisiones</span>
                 </div>
                 
                 <div class="range-item high">
-                    <div>
-                        <span class="range-pct txt-green">85% – 95%</span>
-                    </div>
-                    <div class="range-desc">
-                        <b>Entrada Ideal</b><br>
-                        <span style="font-size: 9px; color: #00e676;">Orden Limit + Confluencia Alta</span>
-                    </div>
+                    <div><span class="range-pct txt-green">85%–95%</span></div>
+                    <div class="range-desc"><b>Entrada Ideal</b><br><span style="font-size: 8px; color: #00e676;">Confluencia Alta</span></div>
                 </div>
 
                 <div class="range-item medium">
-                    <div>
-                        <span class="range-pct txt-yellow">70% – 84%</span>
-                    </div>
-                    <div class="range-desc">
-                        <b>Entrada Confirmada</b><br>
-                        <span style="font-size: 9px; color: #ffd700;">Esperar vela de rechazo / R:R</span>
-                    </div>
+                    <div><span class="range-pct txt-yellow">70%–84%</span></div>
+                    <div class="range-desc"><b>Confirmada</b><br><span style="font-size: 8px; color: #ffd700;">Vela Rechazo</span></div>
                 </div>
 
                 <div class="range-item low">
-                    <div>
-                        <span class="range-pct txt-red">50% – 69%</span>
-                    </div>
-                    <div class="range-desc">
-                        <b>Fuera del Mercado</b><br>
-                        <span style="font-size: 9px; color: #ff1744;">Zona Neutra / Sin Confluencia</span>
-                    </div>
+                    <div><span class="range-pct txt-red">50%–69%</span></div>
+                    <div class="range-desc"><b>Fuera</b><br><span style="font-size: 8px; color: #ff1744;">Zona Neutra</span></div>
                 </div>
             </div>
 
             <div id="setup-panel" class="setup-card">
                 <div class="predict-title" style="color: #ffd700; border-bottom-color: rgba(255, 215, 0, 0.2);">
-                    <span>Trade Setup Óptimo</span>
+                    <span>Trade Setup</span>
                     <span id="setup-type" class="txt-yellow">BUSCANDO...</span>
                 </div>
                 <div class="setup-row">
-                    <span class="setup-label">Precio Entrada (LIMIT):</span>
+                    <span class="setup-label">Entrada (LIMIT):</span>
                     <span id="setup-entry" class="setup-value txt-yellow">--</span>
                 </div>
                 <div class="setup-row">
-                    <span class="setup-label">Stop Loss (VSA Inval.):</span>
+                    <span class="setup-label">Stop Loss:</span>
                     <span id="setup-sl" class="setup-value txt-red">--</span>
                 </div>
                 <div class="setup-row">
@@ -363,15 +393,15 @@
                     <span id="setup-tp1" class="setup-value txt-green">--</span>
                 </div>
                 <div class="setup-row">
-                    <span class="setup-label">Take Profit 2 (S/R MTF):</span>
+                    <span class="setup-label">Take Profit 2:</span>
                     <span id="setup-tp2" class="setup-value txt-green">--</span>
                 </div>
                 <div class="setup-row">
-                    <span class="setup-label">Point of Control (POC):</span>
+                    <span class="setup-label">POC:</span>
                     <span id="setup-poc" class="setup-value txt-purple">--</span>
                 </div>
-                <div class="setup-row" style="border-bottom: none; padding-top: 5px;">
-                    <span class="setup-label">Ratio Riesgo/Beneficio:</span>
+                <div class="setup-row" style="border-bottom: none; padding-top: 4px;">
+                    <span class="setup-label">Riesgo/Beneficio:</span>
                     <span id="setup-rr" class="setup-value txt-yellow">1 : --</span>
                 </div>
             </div>
@@ -381,32 +411,32 @@
                     <thead>
                         <tr>
                             <th>TF</th>
-                            <th>Señal VSA</th>
-                            <th>Vol. Transado</th>
+                            <th>VSA</th>
+                            <th>Volumen</th>
                             <th>% Compra</th>
                             <th>% Venta</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <tr id="row-5m"><td>5m</td><td style="text-align: center;"><span class="badge-neu">NEUTRAL</span></td><td>--</td><td class="txt-green">--</td><td class="txt-red">--</td></tr>
-                        <tr id="row-15m"><td>15m</td><td style="text-align: center;"><span class="badge-neu">NEUTRAL</span></td><td>--</td><td class="txt-green">--</td><td class="txt-red">--</td></tr>
-                        <tr id="row-1h"><td>1h</td><td style="text-align: center;"><span class="badge-neu">NEUTRAL</span></td><td>--</td><td class="txt-green">--</td><td class="txt-red">--</td></tr>
-                        <tr id="row-4h"><td>4h</td><td style="text-align: center;"><span class="badge-neu">NEUTRAL</span></td><td>--</td><td class="txt-green">--</td><td class="txt-red">--</td></tr>
-                        <tr id="row-1d"><td>1d</td><td style="text-align: center;"><span class="badge-neu">NEUTRAL</span></td><td>--</td><td class="txt-green">--</td><td class="txt-red">--</td></tr>
+                        <tr id="row-5m"><td>5m</td><td style="text-align: center;"><span class="badge-neu">NEU</span></td><td>--</td><td class="txt-green">--</td><td class="txt-red">--</td></tr>
+                        <tr id="row-15m"><td>15m</td><td style="text-align: center;"><span class="badge-neu">NEU</span></td><td>--</td><td class="txt-green">--</td><td class="txt-red">--</td></tr>
+                        <tr id="row-1h"><td>1h</td><td style="text-align: center;"><span class="badge-neu">NEU</span></td><td>--</td><td class="txt-green">--</td><td class="txt-red">--</td></tr>
+                        <tr id="row-4h"><td>4h</td><td style="text-align: center;"><span class="badge-neu">NEU</span></td><td>--</td><td class="txt-green">--</td><td class="txt-red">--</td></tr>
+                        <tr id="row-1d"><td>1d</td><td style="text-align: center;"><span class="badge-neu">NEU</span></td><td>--</td><td class="txt-green">--</td><td class="txt-red">--</td></tr>
                     </tbody>
                 </table>
             </div>
 
             <div class="config-box">
                 <div class="config-row">
-                    <span style="color:#787b86; font-weight:bold;">CONFIGURACIÓN VSA</span>
+                    <span style="color:#787b86; font-weight:bold;">CONFIG. VSA</span>
                 </div>
                 <div class="config-row">
-                    <span>Período Prom. Vol:</span>
+                    <span>Período Prom:</span>
                     <input type="number" id="input-period" class="config-input" value="20">
                 </div>
                 <div class="config-row">
-                    <span>Mult. Vol Ballena:</span>
+                    <span>Mult. Ballena:</span>
                     <input type="number" id="input-factor" class="config-input" value="1.8" step="0.1">
                 </div>
             </div>
@@ -429,7 +459,6 @@
         let tradeSetupData = { entry: null, sl: null, tp1: null, tp2: null };
         let vpvrData = { buckets: [], pocPrice: null, maxVol: 0 };
         
-        // Variables para conexión WebSocket persistente
         let ws = null;
         let pingInterval = null;
         let reconnectTimeout = null;
@@ -454,7 +483,7 @@
             height: chartContainer.clientHeight,
             layout: { background: { type: 'solid', color: '#000000' }, textColor: '#d1d4dc' },
             grid: { vertLines: { color: '#161923' }, horzLines: { color: '#161923' } },
-            timeScale: { borderColor: '#2a2e39', timeVisible: true, secondsVisible: false, rightOffset: 15 },
+            timeScale: { borderColor: '#2a2e39', timeVisible: true, secondsVisible: false, rightOffset: 12 },
             rightPriceScale: { borderColor: '#2a2e39', autoScale: true }
         });
 
@@ -661,8 +690,8 @@
                 let direction = "RANGO";
                 let confidence = Math.min(Math.max(50 + Math.abs(tfBias), 52), 91);
 
-                if (tfBias > 12) direction = "BULLISH ↗";
-                else if (tfBias < -12) direction = "BEARISH ↘";
+                if (tfBias > 12) direction = "BULL ↗";
+                else if (tfBias < -12) direction = "BEAR ↘";
 
                 predictions[tf] = { direction, confidence: confidence.toFixed(0) };
             });
@@ -673,14 +702,14 @@
                 const elProb = document.getElementById(`prob-${idPrefix}`);
 
                 elDir.innerText = data.direction;
-                if (data.direction.includes("BULLISH")) {
+                if (data.direction.includes("BULL")) {
                     elDir.className = "predict-val txt-green";
-                } else if (data.direction.includes("BEARISH")) {
+                } else if (data.direction.includes("BEAR")) {
                     elDir.className = "predict-val txt-red";
                 } else {
                     elDir.className = "predict-val txt-yellow";
                 }
-                elProb.innerText = `${data.confidence}% Confianza`;
+                elProb.innerText = `${data.confidence}% Conf.`;
             };
 
             updatePredictUI('15m', predictions['15m']);
@@ -689,13 +718,13 @@
 
             const summaryEl = document.getElementById("ai-summary");
             if (nearestZoneType && nearestZoneDist < 0.6) {
-                summaryEl.innerText = `Cerca de ${nearestZoneType} MTF (${nearestZoneDist.toFixed(2)}% dist). Reacción inminente.`;
+                summaryEl.innerText = `Cerca de ${nearestZoneType} (${nearestZoneDist.toFixed(2)}% dist). Reacción inminente.`;
             } else if (totalBias > 25) {
-                summaryEl.innerText = `Presión de compra dominante acumulada en temporalidades superiores.`;
+                summaryEl.innerText = `Presión alcista dominante en MTF.`;
             } else if (totalBias < -25) {
-                summaryEl.innerText = `Presión de venta masiva detectada. Ajustando proyección a la baja.`;
+                summaryEl.innerText = `Presión de venta masiva detectada.`;
             } else {
-                summaryEl.innerText = `Mercado consolidando entre zonas clave de soporte y resistencia.`;
+                summaryEl.innerText = `Consolidación entre zonas de liquidez.`;
             }
 
             generateTradeSetup(currentPrice, totalBias, activeSupports, activeResistances, nearestZoneType, nearestZonePrice);
@@ -724,7 +753,7 @@
 
                 tradeSetupData = { entry, sl, tp1, tp2 };
 
-                elType.innerText = "LONG (COMPRA)";
+                elType.innerText = "LONG";
                 elType.className = "txt-green";
                 elEntry.innerText = entry.toFixed(2);
                 elSL.innerText = sl.toFixed(2);
@@ -744,7 +773,7 @@
 
                 tradeSetupData = { entry, sl, tp1, tp2 };
 
-                elType.innerText = "SHORT (VENTA)";
+                elType.innerText = "SHORT";
                 elType.className = "txt-red";
                 elEntry.innerText = entry.toFixed(2);
                 elSL.innerText = sl.toFixed(2);
@@ -754,7 +783,7 @@
 
             } else {
                 tradeSetupData = { entry: null, sl: null, tp1: null, tp2: null };
-                elType.innerText = "ESPERAR ZONA";
+                elType.innerText = "ESPERAR";
                 elType.className = "txt-yellow";
                 elEntry.innerText = "--";
                 elSL.innerText = "--";
@@ -766,9 +795,9 @@
 
         function formatVol(val) {
             if (!val || isNaN(val)) return "--";
-            if (val >= 1000000) return (val / 1000000).toFixed(2) + "M";
-            if (val >= 1000) return (val / 1000).toFixed(2) + "K";
-            return val.toFixed(2);
+            if (val >= 1000000) return (val / 1000000).toFixed(1) + "M";
+            if (val >= 1000) return (val / 1000).toFixed(1) + "K";
+            return val.toFixed(1);
         }
 
         async function loadMTFData() {
@@ -799,7 +828,7 @@
             const row = document.getElementById(`row-${tf}`);
             if (!row || !state) return;
 
-            let badge = `<span class="badge-neu">NEUTRAL</span>`;
+            let badge = `<span class="badge-neu">NEU</span>`;
             if (state.isBuy) badge = `<span class="badge-buy">BUY</span>`;
             else if (state.isSell) badge = `<span class="badge-sell">SELL</span>`;
 
@@ -818,11 +847,11 @@
             
             let lastCandleX = timeScale.timeToCoordinate(lastCandle.time);
             if (lastCandleX === null) {
-                lastCandleX = overlay.width - 65;
+                lastCandleX = overlay.width - 55;
             }
 
             if (showVPVR && vpvrData.buckets.length > 0) {
-                const maxBarWidth = 110; 
+                const maxBarWidth = Math.min(100, overlay.width * 0.25); 
                 const chartRightX = lastCandleX;
 
                 vpvrData.buckets.forEach(b => {
@@ -843,7 +872,7 @@
                     const pocY = candlestickSeries.priceToCoordinate(vpvrData.pocPrice);
                     if (pocY !== null && pocY >= 0 && pocY <= overlay.height) {
                         ctx.strokeStyle = "#e040fb";
-                        ctx.lineWidth = 2.0;
+                        ctx.lineWidth = 1.5;
                         ctx.beginPath();
                         ctx.setLineDash([2, 2]);
                         ctx.moveTo(0, pocY);
@@ -851,13 +880,13 @@
                         ctx.stroke();
                         ctx.setLineDash([]);
 
-                        ctx.font = "bold 9px -apple-system, BlinkMacSystemFont, Roboto, sans-serif";
+                        ctx.font = "bold 9px -apple-system, Roboto, sans-serif";
                         ctx.fillStyle = "#e040fb";
-                        ctx.fillRect(chartRightX + 18, pocY - 7, 36, 14);
+                        ctx.fillRect(chartRightX + 10, pocY - 6, 30, 12);
                         ctx.fillStyle = "#000000";
                         ctx.textAlign = "center";
                         ctx.textBaseline = "middle";
-                        ctx.fillText("POC", chartRightX + 36, pocY);
+                        ctx.fillText("POC", chartRightX + 25, pocY);
                     }
                 }
             }
@@ -889,21 +918,21 @@
                     const y = candlestickSeries.priceToCoordinate(price);
                     if (y !== null && y >= 0 && y <= overlay.height) {
                         drawableItems.push({
-                            price, title: label, color, style: 'dashed', lineWidth: 1.8,
+                            price, title: label, color, style: 'dashed', lineWidth: 1.5,
                             y, labelY: y, startX: 0, endX: lastCandleX
                         });
                     }
                 };
 
-                addSetupLine(tradeSetupData.entry, 'ENTRY LIMIT', '#ffd700');
-                addSetupLine(tradeSetupData.sl, 'STOP LOSS', '#ff1744');
-                addSetupLine(tradeSetupData.tp1, 'TAKE PROFIT 1', '#00e676');
-                if (tradeSetupData.tp2) addSetupLine(tradeSetupData.tp2, 'TAKE PROFIT 2', '#00e676');
+                addSetupLine(tradeSetupData.entry, 'ENTRY', '#ffd700');
+                addSetupLine(tradeSetupData.sl, 'SL', '#ff1744');
+                addSetupLine(tradeSetupData.tp1, 'TP1', '#00e676');
+                if (tradeSetupData.tp2) addSetupLine(tradeSetupData.tp2, 'TP2', '#00e676');
             }
 
             drawableItems.sort((a, b) => a.y - b.y);
 
-            const minPadding = 16;
+            const minPadding = 14;
             for (let i = 1; i < drawableItems.length; i++) {
                 let prev = drawableItems[i - 1];
                 let curr = drawableItems[i];
@@ -914,11 +943,11 @@
 
             drawableItems.forEach(item => {
                 ctx.strokeStyle = item.color;
-                ctx.lineWidth = item.lineWidth || 2.5;
+                ctx.lineWidth = item.lineWidth || 2.0;
                 ctx.beginPath();
 
                 if (item.style === 'dashed') {
-                    ctx.setLineDash([4, 4]);
+                    ctx.setLineDash([3, 3]);
                 } else {
                     ctx.setLineDash([]);
                 }
@@ -928,18 +957,18 @@
                 ctx.stroke();
                 ctx.setLineDash([]);
 
-                ctx.font = "bold 10px -apple-system, BlinkMacSystemFont, Roboto, sans-serif";
+                ctx.font = "bold 9px -apple-system, Roboto, sans-serif";
                 const textMetrics = ctx.measureText(item.title);
-                const padX = 5;
+                const padX = 4;
                 const rectW = textMetrics.width + (padX * 2);
-                const rectH = 15;
+                const rectH = 13;
                 
-                const rectX = item.endX + 18; 
+                const rectX = item.endX + 10; 
                 const rectY = item.labelY - (rectH / 2);
 
                 ctx.fillStyle = item.color;
                 ctx.beginPath();
-                ctx.roundRect(rectX, rectY, rectW, rectH, 3);
+                ctx.roundRect(rectX, rectY, rectW, rectH, 2);
                 ctx.fill();
 
                 ctx.fillStyle = "#000000";
@@ -976,7 +1005,7 @@
                         title: 'Sop Chart',
                         color: '#00b0ff',
                         style: 'solid',
-                        lineWidth: 2.5,
+                        lineWidth: 2.0,
                         startTime: currentAnalysis.lastSupport.time
                     });
                 }
@@ -986,17 +1015,17 @@
                         title: 'Res Chart',
                         color: '#ff5252',
                         style: 'solid',
-                        lineWidth: 2.5,
+                        lineWidth: 2.0,
                         startTime: currentAnalysis.lastResistance.time
                     });
                 }
 
                 const mtfLevels = [
-                    { tf: '5m', label: '5m', colorS: '#00e5ff', colorR: '#ff4081', style: 'dashed', lineWidth: 2.0 },
-                    { tf: '15m', label: '15m', colorS: '#00b0ff', colorR: '#ff5252', style: 'dashed', lineWidth: 2.2 },
-                    { tf: '1h', label: '1H', colorS: '#2962ff', colorR: '#d32f2f', style: 'solid', lineWidth: 2.5 },
-                    { tf: '4h', label: '4H', colorS: '#a142f4', colorR: '#e040fb', style: 'solid', lineWidth: 3.0 },
-                    { tf: '1d', label: '1D', colorS: '#e6a100', colorR: '#ff9100', style: 'solid', lineWidth: 3.5 }
+                    { tf: '5m', label: '5m', colorS: '#00e5ff', colorR: '#ff4081', style: 'dashed', lineWidth: 1.5 },
+                    { tf: '15m', label: '15m', colorS: '#00b0ff', colorR: '#ff5252', style: 'dashed', lineWidth: 1.8 },
+                    { tf: '1h', label: '1H', colorS: '#2962ff', colorR: '#d32f2f', style: 'solid', lineWidth: 2.0 },
+                    { tf: '4h', label: '4H', colorS: '#a142f4', colorR: '#e040fb', style: 'solid', lineWidth: 2.5 },
+                    { tf: '1d', label: '1D', colorS: '#e6a100', colorR: '#ff9100', style: 'solid', lineWidth: 3.0 }
                 ];
 
                 mtfLevels.forEach(m => {
@@ -1036,7 +1065,7 @@
 
         async function fetchKlines(interval = "15m") {
             currentTF = interval;
-            updateStatus("Sincronizando...", "#ffd700", "rgba(255, 215, 0, 0.15)");
+            updateStatus("Cargando...", "#ffd700", "rgba(255, 215, 0, 0.15)");
 
             try {
                 const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=1000`);
@@ -1051,14 +1080,13 @@
                 await loadMTFData();
                 connectWebSocket(interval);
             } catch (err) {
-                updateStatus("Error API", "#ff1744", "rgba(255, 23, 68, 0.15)");
+                updateStatus("Error", "#ff1744", "rgba(255, 23, 68, 0.15)");
             }
         }
 
-        // --- SISTEMA DE CONEXIÓN WEBSOCKET PERSISTENTE Y RECONEXIÓN AUTOMÁTICA ---
         function connectWebSocket(interval = "15m") {
             if (ws) {
-                ws.onclose = null; // Evitar disparar riconexiones cruzadas al cerrar intencionalmente
+                ws.onclose = null;
                 ws.close();
             }
 
@@ -1068,9 +1096,8 @@
             ws = new WebSocket(`wss://stream.binance.com:9443/ws/btcusdt@kline_${interval}`);
 
             ws.onopen = () => {
-                updateStatus("Conectado ✓", "#00e676", "rgba(0, 230, 118, 0.15)");
+                updateStatus("Online ✓", "#00e676", "rgba(0, 230, 118, 0.15)");
                 
-                // Keep-Alive Ping cada 30 segundos para evitar cierres por inactividad del navegador
                 pingInterval = setInterval(() => {
                     if (ws && ws.readyState === WebSocket.OPEN) {
                         ws.send(JSON.stringify({ method: "PING" }));
@@ -1106,20 +1133,17 @@
             };
 
             ws.onclose = () => {
-                updateStatus("Desconectado", "#ff1744", "rgba(255, 23, 68, 0.15)");
+                updateStatus("Offline", "#ff1744", "rgba(255, 23, 68, 0.15)");
                 if (pingInterval) clearInterval(pingInterval);
                 
-                // Reintentar conexión automáticamente en 3 segundos
                 reconnectTimeout = setTimeout(() => {
                     connectWebSocket(currentTF);
                 }, 3000);
             };
         }
 
-        // Detectar cuando el usuario vuelve a enfocar la pestaña
         document.addEventListener("visibilitychange", () => {
             if (document.visibilityState === "visible") {
-                // Si la conexión está caída o no está en estado OPEN, se reconecta e impacta actualización fresca de klines
                 if (!ws || ws.readyState !== WebSocket.OPEN) {
                     fetchKlines(currentTF);
                 }
@@ -1147,7 +1171,7 @@
 
         btnPanel.addEventListener("click", () => {
             const dashboard = document.getElementById("dashboard");
-            const isHidden = dashboard.style.display === "none";
+            const isHidden = window.getComputedStyle(dashboard).display === "none";
             dashboard.style.display = isHidden ? "flex" : "none";
             btnPanel.className = isHidden ? "btn-toggle" : "btn-toggle inactive";
         });
