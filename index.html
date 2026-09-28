@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bitcoin Trading Terminal - VPVR & Institutional Engine</title>
+    <title>Bitcoin Trading Terminal - VPVR & Decision Engine</title>
     <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -106,6 +106,7 @@
             gap: 8px; 
             max-height: calc(100% - 24px);
             overflow-y: auto;
+            width: 320px;
         }
 
         .vsa-table-container {
@@ -120,7 +121,7 @@
             border-collapse: collapse; 
             font-size: 11px; 
             color: #d1d4dc;
-            min-width: 280px;
+            width: 100%;
         }
 
         .vsa-table th { 
@@ -188,7 +189,34 @@
         }
 
         .predict-tf { font-size: 10px; color: #787b86; margin-bottom: 2px; }
-        .predict-val { font-size: 12px; font-weight: bold; }
+        .predict-val { font-size: 11px; font-weight: bold; }
+
+        /* Panel de Toma de Decisiones y Rangos de Confianza */
+        .decision-card {
+            background: rgba(19, 23, 34, 0.95);
+            border: 1px solid #2962ff;
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 10px;
+        }
+
+        .range-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 6px;
+            margin-top: 4px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 3px solid #787b86;
+        }
+
+        .range-item.high { border-left-color: #00e676; }
+        .range-item.medium { border-left-color: #ffd700; }
+        .range-item.low { border-left-color: #ff1744; }
+
+        .range-pct { font-weight: bold; font-size: 11px; }
+        .range-desc { color: #b2b5be; font-size: 10px; text-align: right; }
 
         .setup-card {
             background: rgba(19, 23, 34, 0.95);
@@ -281,6 +309,43 @@
                 </div>
             </div>
 
+            <!-- MÓDULO NUEVO: Rangos de Confianza y Toma de Decisiones -->
+            <div class="decision-card">
+                <div class="predict-title" style="color: #2962ff; border-bottom-color: rgba(41, 98, 255, 0.2);">
+                    <span>Guía de Decisiones (Confianza)</span>
+                </div>
+                
+                <div class="range-item high">
+                    <div>
+                        <span class="range-pct txt-green">85% – 95%</span>
+                    </div>
+                    <div class="range-desc">
+                        <b>Entrada Ideal</b><br>
+                        <span style="font-size: 9px; color: #00e676;">Orden Limit + Confluencia Alta</span>
+                    </div>
+                </div>
+
+                <div class="range-item medium">
+                    <div>
+                        <span class="range-pct txt-yellow">70% – 84%</span>
+                    </div>
+                    <div class="range-desc">
+                        <b>Entrada Confirmada</b><br>
+                        <span style="font-size: 9px; color: #ffd700;">Esperar vela de rechazo / R:R</span>
+                    </div>
+                </div>
+
+                <div class="range-item low">
+                    <div>
+                        <span class="range-pct txt-red">50% – 69%</span>
+                    </div>
+                    <div class="range-desc">
+                        <b>Fuera del Mercado</b><br>
+                        <span style="font-size: 9px; color: #ff1744;">Zona Neutra / Sin Confluencia</span>
+                    </div>
+                </div>
+            </div>
+
             <div id="setup-panel" class="setup-card">
                 <div class="predict-title" style="color: #ffd700; border-bottom-color: rgba(255, 215, 0, 0.2);">
                     <span>Trade Setup Óptimo</span>
@@ -362,7 +427,6 @@
         let mtfVsaCache = {};
         let vsaLinesToDraw = [];
         
-        // Estructura de Setup de Trade
         let tradeSetupData = { entry: null, sl: null, tp1: null, tp2: null };
         let vpvrData = { buckets: [], pocPrice: null, maxVol: 0 };
         let ws = null;
@@ -470,7 +534,6 @@
             return { events, lastSupport, lastResistance, lastState };
         }
 
-        /* CÁLCULO DEL VPVR EN RANGO VISIBLE */
         function calculateVPVR() {
             if (!showVPVR || currentCandleData.length === 0) return;
 
@@ -748,7 +811,6 @@
                 lastCandleX = overlay.width - 65;
             }
 
-            // DIBUJAR VPVR (HISTOGRAMA LATERAL DER)
             if (showVPVR && vpvrData.buckets.length > 0) {
                 const maxBarWidth = 110; 
                 const chartRightX = lastCandleX;
@@ -767,7 +829,6 @@
                     }
                 });
 
-                // DIBUJAR POC (POINT OF CONTROL) EN MAGENTA
                 if (vpvrData.pocPrice) {
                     const pocY = candlestickSeries.priceToCoordinate(vpvrData.pocPrice);
                     if (pocY !== null && pocY >= 0 && pocY <= overlay.height) {
@@ -780,7 +841,6 @@
                         ctx.stroke();
                         ctx.setLineDash([]);
 
-                        // Etiqueta POC
                         ctx.font = "bold 9px -apple-system, BlinkMacSystemFont, Roboto, sans-serif";
                         ctx.fillStyle = "#e040fb";
                         ctx.fillRect(chartRightX + 18, pocY - 7, 36, 14);
@@ -814,7 +874,6 @@
                 });
             }
 
-            // DIBUJAR NIVELES DE TRADE SETUP (ENTRY, SL, TP1, TP2)
             if (tradeSetupData.entry) {
                 const addSetupLine = (price, label, color) => {
                     const y = candlestickSeries.priceToCoordinate(price);
@@ -1040,13 +1099,9 @@
         });
 
         btnPanel.addEventListener("click", () => {
-            const panel1 = document.getElementById("panel-vsa-mtf");
-            const panel2 = document.getElementById("predict-panel");
-            const panel3 = document.getElementById("setup-panel");
-            const isHidden = panel1.style.display === "none";
-            panel1.style.display = isHidden ? "block" : "none";
-            panel2.style.display = isHidden ? "block" : "none";
-            panel3.style.display = isHidden ? "block" : "none";
+            const dashboard = document.getElementById("dashboard");
+            const isHidden = dashboard.style.display === "none";
+            dashboard.style.display = isHidden ? "flex" : "none";
             btnPanel.className = isHidden ? "btn-toggle" : "btn-toggle inactive";
         });
 
