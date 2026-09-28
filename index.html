@@ -53,6 +53,7 @@
             border-radius: 4px;
             font-size: 11px;
             font-weight: bold;
+            transition: all 0.3s ease;
         }
 
         .btn-toggle {
@@ -191,7 +192,6 @@
         .predict-tf { font-size: 10px; color: #787b86; margin-bottom: 2px; }
         .predict-val { font-size: 11px; font-weight: bold; }
 
-        /* Panel de Toma de Decisiones y Rangos de Confianza */
         .decision-card {
             background: rgba(19, 23, 34, 0.95);
             border: 1px solid #2962ff;
@@ -264,7 +264,7 @@
                 <option value="4h">4 Horas</option>
                 <option value="1d">1 Diario</option>
             </select>
-            <div id="status" class="status-badge">Conectado ✓</div>
+            <div id="status" class="status-badge">Conectando...</div>
         </div>
 
         <div class="controls-right">
@@ -309,7 +309,6 @@
                 </div>
             </div>
 
-            <!-- MÓDULO NUEVO: Rangos de Confianza y Toma de Decisiones -->
             <div class="decision-card">
                 <div class="predict-title" style="color: #2962ff; border-bottom-color: rgba(41, 98, 255, 0.2);">
                     <span>Guía de Decisiones (Confianza)</span>
@@ -429,7 +428,12 @@
         
         let tradeSetupData = { entry: null, sl: null, tp1: null, tp2: null };
         let vpvrData = { buckets: [], pocPrice: null, maxVol: 0 };
+        
+        // Variables para conexión WebSocket persistente
         let ws = null;
+        let pingInterval = null;
+        let reconnectTimeout = null;
+        let currentTF = "15m";
 
         const statusEl = document.getElementById("status");
         const timeframeSelect = document.getElementById("timeframe");
@@ -457,6 +461,13 @@
         const candlestickSeries = chart.addCandlestickSeries({
             upColor: '#089981', downColor: '#f23645', borderVisible: false, wickUpColor: '#089981', wickDownColor: '#f23645'
         });
+
+        function updateStatus(text, color, bgColor) {
+            statusEl.innerText = text;
+            statusEl.style.color = color;
+            statusEl.style.borderColor = color;
+            statusEl.style.backgroundColor = bgColor;
+        }
 
         function resizeCanvas() {
             overlay.width = chartContainer.clientWidth;
@@ -762,7 +773,6 @@
 
         async function loadMTFData() {
             const tfs = ['5m', '15m', '1h', '4h', '1d'];
-            const currentTF = timeframeSelect.value;
 
             for (const tf of tfs) {
                 try {
@@ -1025,10 +1035,8 @@
         }
 
         async function fetchKlines(interval = "15m") {
-            statusEl.innerText = "Cargando...";
-            statusEl.style.color = "#ffd700";
-
-            if (ws) ws.close();
+            currentTF = interval;
+            updateStatus("Sincronizando...", "#ffd700", "rgba(255, 215, 0, 0.15)");
 
             try {
                 const res = await fetch(`https://api.binance.com/api/v3/klines?symbol=BTCUSDT&interval=${interval}&limit=1000`);
@@ -1043,23 +1051,38 @@
                 await loadMTFData();
                 connectWebSocket(interval);
             } catch (err) {
-                statusEl.innerText = "Error API";
-                statusEl.style.color = "#ff1744";
+                updateStatus("Error API", "#ff1744", "rgba(255, 23, 68, 0.15)");
             }
         }
 
+        // --- SISTEMA DE CONEXIÓN WEBSOCKET PERSISTENTE Y RECONEXIÓN AUTOMÁTICA ---
         function connectWebSocket(interval = "15m") {
+            if (ws) {
+                ws.onclose = null; // Evitar disparar riconexiones cruzadas al cerrar intencionalmente
+                ws.close();
+            }
+
+            if (pingInterval) clearInterval(pingInterval);
+            if (reconnectTimeout) clearTimeout(reconnectTimeout);
+
             ws = new WebSocket(`wss://stream.binance.com:9443/ws/btcusdt@kline_${interval}`);
 
             ws.onopen = () => {
-                statusEl.innerText = "Conectado ✓";
-                statusEl.style.color = "#00e676";
+                updateStatus("Conectado ✓", "#00e676", "rgba(0, 230, 118, 0.15)");
+                
+                // Keep-Alive Ping cada 30 segundos para evitar cierres por inactividad del navegador
+                pingInterval = setInterval(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ method: "PING" }));
+                    }
+                }, 30000);
             };
 
             ws.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
-                const k = msg.k;
+                if (!msg.k) return;
 
+                const k = msg.k;
                 const candle = {
                     time: Math.floor(k.t / 1000),
                     open: parseFloat(k.o), high: parseFloat(k.h), low: parseFloat(k.l), close: parseFloat(k.c), volume: parseFloat(k.v)
@@ -1077,7 +1100,31 @@
                 renderVSAChartElements();
                 runPredictionEngine();
             };
+
+            ws.onerror = () => {
+                updateStatus("Reconectando...", "#ffd700", "rgba(255, 215, 0, 0.15)");
+            };
+
+            ws.onclose = () => {
+                updateStatus("Desconectado", "#ff1744", "rgba(255, 23, 68, 0.15)");
+                if (pingInterval) clearInterval(pingInterval);
+                
+                // Reintentar conexión automáticamente en 3 segundos
+                reconnectTimeout = setTimeout(() => {
+                    connectWebSocket(currentTF);
+                }, 3000);
+            };
         }
+
+        // Detectar cuando el usuario vuelve a enfocar la pestaña
+        document.addEventListener("visibilitychange", () => {
+            if (document.visibilityState === "visible") {
+                // Si la conexión está caída o no está en estado OPEN, se reconecta e impacta actualización fresca de klines
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    fetchKlines(currentTF);
+                }
+            }
+        });
 
         btnVsa.addEventListener("click", () => {
             showVsaLines = !showVsaLines;
